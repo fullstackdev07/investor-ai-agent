@@ -39,24 +39,24 @@ def send_cc(founder_email: str, investor_email: str, investor_name: str, founder
         print(f"Error generating email content from template: {e}")
         return False
 
-    message = MIMEText(body, 'plain', 'utf-8') 
+    message = MIMEText(body, 'plain', 'utf-8')
     message['Subject'] = subject
     message['From'] = formataddr((sender_display_name or sender_from_address, sender_from_address))
     message['To'] = founder_email
     message['Cc'] = investor_email
     recipients = [founder_email, investor_email]
 
-    server = None 
+    server = None
     try:
         print(f"DEBUG: Attempting SMTP connection to {smtp_host}:{smtp_port}")
         if smtp_port == 465:
-            server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10) 
-            server.ehlo() 
+            server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10)
+            server.ehlo()
             print("DEBUG: Connected via SMTP_SSL.")
         else:
-            server = smtplib.SMTP(smtp_host, smtp_port, timeout=10) 
-            server.ehlo() 
-            if use_tls or smtp_port == 587: 
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
+            server.ehlo()
+            if use_tls or smtp_port == 587:
                 print("DEBUG: Starting TLS...")
                 server.starttls()
                 server.ehlo()
@@ -67,9 +67,9 @@ def send_cc(founder_email: str, investor_email: str, investor_name: str, founder
 
         print(f"DEBUG: Sending CC email From: {sender_from_address} To: {recipients}...")
         server.sendmail(
-            sender_from_address, 
-            recipients, 
-            message.as_string() 
+            sender_from_address,
+            recipients,
+            message.as_string()
         )
         print("DEBUG: CC Email sent successfully via SMTP.")
 
@@ -87,12 +87,12 @@ def send_cc(founder_email: str, investor_email: str, investor_name: str, founder
     except smtplib.SMTPServerDisconnected as e:
         print(f"ERROR: SMTP Server Disconnected Error: {e}.")
         return False
-    except TimeoutError as e: 
+    except TimeoutError as e:
         print(f"ERROR: SMTP Timeout Error: {e}. Server may be slow or unreachable.")
         return False
     except Exception as e:
         print(f"ERROR: Unexpected error sending CC email: {e}")
-        traceback.print_exc()  
+        traceback.print_exc()
         return False
     finally:
         if server:
@@ -101,21 +101,3 @@ def send_cc(founder_email: str, investor_email: str, investor_name: str, founder
                 server.quit()
             except Exception as e_quit:
                 print(f"Warning: Error closing SMTP connection: {e_quit}")
-
-
-if __name__ == "__main__":
-    print("Ssdsdsdsds")
-    parser = argparse.ArgumentParser(description="Send a follow-up CC email to founder and investor.")
-    parser.add_argument("--founder_email", required=True, help="Founder's email address")
-    parser.add_argument("--investor_email", required=True, help="Investor's email address")
-    parser.add_argument("--investor_name", required=True, help="Investor's name")
-    parser.add_argument("--founder_name", required=True, help="Founder's name")
-    parser.add_argument("--startup_name", required=True, help="Startup's name")
-
-    args = parser.parse_args()
-    print("dddddd", args)
-
-    if send_cc(args.founder_email, args.investor_email, args.investor_name, args.founder_name, args.startup_name):
-        print("Email sent successfully.")
-    else:
-        print("Failed to send email.")

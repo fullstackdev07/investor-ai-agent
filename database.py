@@ -7,9 +7,9 @@ DB_NAME = "email_tracking.db"
 def init_db():
     """Initializes the database and creates the table if it doesn't exist."""
     if os.path.exists(DB_NAME):
-         print(f"Database {DB_NAME} already exists.")
+        print(f"Database {DB_NAME} already exists.")
     else:
-         print(f"Creating database {DB_NAME}...")
+        print(f"Creating database {DB_NAME}...")
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute('''
@@ -20,11 +20,13 @@ def init_db():
             founder_email TEXT NOT NULL,
             founder_name TEXT,
             startup_name TEXT,
-            sent_message_id TEXT UNIQUE, -- If you can reliably get this
-            status TEXT NOT NULL DEFAULT 'unknown', -- e.g., 'sent', 'replied_positive', 'connected', 'replied_negative', 'error'
+            sent_message_id TEXT UNIQUE,
+            status TEXT NOT NULL DEFAULT 'pending',
             sent_timestamp DATETIME NOT NULL,
             reply_timestamp DATETIME,
-            last_checked_timestamp DATETIME
+            last_checked_timestamp DATETIME,
+            investor_accepted BOOLEAN DEFAULT 0,
+            accepted_timestamp DATETIME
         )
     ''')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_investor_email ON outreach (investor_email)')
@@ -47,6 +49,32 @@ def add_sent_email_record(investor_email, investor_name, founder_email, founder_
         return True
     except sqlite3.Error as e:
         print(f"DB Error adding record for {investor_email}: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def update_investor_acceptance(investor_email: str) -> bool:
+    """Updates the database when an investor clicks the acceptance link."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    try:
+        now = datetime.datetime.now()
+        cursor.execute('''
+            UPDATE outreach
+            SET investor_accepted = 1, accepted_timestamp = ?
+            WHERE investor_email = ? AND status = 'sent' AND investor_accepted = 0
+        ''', (now, investor_email))
+        updated_rows = cursor.rowcount
+        conn.commit()
+        if updated_rows > 0:
+            print(f"DB: Investor {investor_email} accepted the invitation.")
+            return True
+        else:
+            print(f"DB: No matching 'sent' record found or already accepted for {investor_email}.")
+            return False
+    except sqlite3.Error as e:
+        print(f"DB Error updating acceptance for {investor_email}: {e}")
         return False
     finally:
         conn.close()

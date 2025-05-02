@@ -1,3 +1,4 @@
+import jwt
 import smtplib
 import traceback
 import sqlite3
@@ -6,11 +7,10 @@ from email.utils import make_msgid, formataddr
 from langchain.tools import tool
 import pandas as pd
 from tabulate import tabulate
-
 from data_loader import get_investor_dataframe 
 from config import (
     MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD,
-    MAIL_ENCRYPTION, MAIL_FROM_ADDRESS, MAIL_FROM_NAME
+    MAIL_ENCRYPTION, MAIL_FROM_ADDRESS, MAIL_FROM_NAME, ACCEPT_LINK_SECRET_KEY
 )
 from database import add_sent_email_record, init_db, DB_NAME
 from email_templates import get_initial_outreach_email
@@ -79,7 +79,7 @@ def send_investor_email(
     startup_pitch: str
 ) -> str:
     """
-    Sends an email to a specific investor, using a template.
+    Sends an HTML email to a specific investor, including an acceptance button.
     Requires: investor_name, founder_email, founder_name, startup_name, startup_pitch
     """
 
@@ -103,6 +103,7 @@ def send_investor_email(
 
     investor_email = None
     investor_name_exact = None
+    investor_focus = None
 
     try:
         potential_matches = df[df['name'].str.contains(investor_name, case=False, na=False)]
@@ -111,7 +112,7 @@ def send_investor_email(
             investor_email = matched_row.get('email')
             investor_name_exact = matched_row.get('name')
             investor_focus = matched_row.get('focusarea', "") 
-            print(f"DEBUG TOOL: Found unique match for '{investor_name}': Email={investor_email}, Exact Name='{investor_name_exact}'")
+            print(f"DEBUG TOOL: Found unique match for '{investor_name}': Email={investor_email}, Exact Name='{investor_name_exact}', Focus='{investor_focus}'")
 
         elif len(potential_matches) > 1:
             print(f"ERROR: Found multiple investors matching name '{investor_name}'. Cannot proceed.")
@@ -147,26 +148,38 @@ def send_investor_email(
         return "Error: Email credentials/server info not fully configured."
 
     try:
+        payload = {
+            'investor_email': investor_email,
+            'founder_email': founder_email,
+            'investor_name': investor_name_exact,
+            'founder_name': founder_name,
+            'startup_name': startup_name
+        }
+        encoded_jwt = jwt.encode(payload, ACCEPT_LINK_SECRET_KEY, algorithm="HS256")
+
+        acceptance_link = f"http://127.0.0.1:5000/accept_investor?token={encoded_jwt}" 
+
         email_content = get_initial_outreach_email(
-            investor_name=investor_name_exact, 
+            investor_name=investor_name_exact,
             founder_name=founder_name,
             founder_startup_name=startup_name,
             startup_pitch=startup_pitch,
-            investor_focus=investor_focus  # Pass the investor's focus area
+            investor_focus=investor_focus, 
+            acceptance_link=acceptance_link
         )
         subject = email_content["subject"]
         body = email_content["body"]
 
-        message = MIMEText(body, 'plain', 'utf-8')
+        message = MIMEText(body, 'html', 'utf-8') 
         message['Subject'] = subject
         message['From'] = formataddr((sender_display_name or sender_from_address, sender_from_address))
         message['To'] = investor_email
         message_id = make_msgid()
         message['Message-ID'] = message_id
-    except Exception as e:
-        print(f"ERROR: Error generating email content: {e}")
-        return f"Error generating email content: {e}"
 
+    except Exception as e:
+        print(f"ERROR: Error generating email content or JWT: {e}")
+        return f"Error generating email content: {e}"
 
     server = None
     try:

@@ -1,0 +1,11 @@
+langchain
+langchain-openai
+langchain-google-vertexai
+google-cloud-aiplatform
+openai
+pandas
+python-dotenv
+tabulate
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib

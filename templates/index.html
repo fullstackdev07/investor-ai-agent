@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investor AI Agent Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .investor-options {
+            margin-top: 10px;
+        }
+        .investor-option {
+            display: block;
+            margin-bottom: 5px;
+            padding: 8px 12px;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            color: #333;
+        }
+        .investor-option:hover {
+            background-color: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Investor AI Agent</h1>
+        <div id="chatbox">
+            <p class="botText"><span>Hi! What types of investors are you looking for today?</span></p>
+        </div>
+        <div id="investorOptions" class="investor-options">
+            <!-- Investor options will be dynamically added here -->
+        </div>
+        <div id="userInput">
+            <input type="text" id="textInput" name="msg" placeholder="Enter Message">
+            <button id="buttonInput">Send</button>
+        </div>
+    </div>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $("#buttonInput").click(function() {
+                var userText = $("#textInput").val();
+                $("#textInput").val("");
+                var chatbox = $("#chatbox");
+                chatbox.append("<p class='userText'><span>" + userText + "</span></p>");
+                $("#investorOptions").empty(); // Clear previous investor options
+                $.post("/get_response", {user_message: userText}, function(data) {
+                    var botResponse = data.bot_response;
+                    chatbox.append("<p class='botText'><span>" + botResponse + "</span></p>");
+
+                    if (data.investor_options) {
+                        var investorOptionsDiv = $("#investorOptions");
+                        data.investor_options.forEach(function(investor) {
+                            var option = $("<a href='#' class='investor-option'>" + investor + "</a>");
+                            option.click(function(e) {
+                                e.preventDefault();
+                                chatbox.append("<p class='userText'><span>" + investor + "</span></p>");
+                                investorOptionsDiv.empty();  // Clear the investor options
+                                // Send the selected investor to the backend
+                                $.post("/send_email_to_investor", {investor_name: investor}, function(data) {
+                                    chatbox.append("<p class='botText'><span>" + data.bot_response + "</span></p>");
+
+                                    if (data.require_confirmation) {
+                                        // Add "yes" and "no" buttons
+                                        var yesButton = $("<button>Yes</button>");
+                                        var noButton = $("<button>No</button>");
+
+                                        yesButton.click(function() {
+                                            // Send confirmation to the backend
+                                            $.post("/confirm_send_email", {confirmation: "yes", investor_name: data.investor_name}, function(data) {
+                                                chatbox.append("<p class='botText'><span>" + data.bot_response + "</span></p>");
+                                            });
+                                            yesButton.remove();
+                                            noButton.remove();
+                                        });
+
+                                        noButton.click(function() {
+                                            chatbox.append("<p class='botText'><span>Email not sent.</span></p>");
+                                            yesButton.remove();
+                                            noButton.remove();
+                                        });
+
+                                        chatbox.append(yesButton);
+                                        chatbox.append(noButton);
+                                    }
+                                });
+                            });
+                            investorOptionsDiv.append(option);
+                        });
+                    }
+                });
+            });
+
+            $("#textInput").keypress(function(event) {
+                if (event.which == 13) {
+                    $("#buttonInput").click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -2,7 +2,6 @@ import smtplib
 import traceback
 from email.mime.text import MIMEText
 from email.utils import formataddr
-import argparse
 from config import (
     MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD,
     MAIL_ENCRYPTION, MAIL_FROM_ADDRESS, MAIL_FROM_NAME
